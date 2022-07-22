@@ -9,17 +9,19 @@
 from bcc import BPF
 
 prog = """
-int gro_trace(struct pt_regs *cts){
-    bpf_trace_printk("Called the function!\\n");
+#include <linux/netdevice.h>
+
+int gro_trace(struct pt_regs *cts, struct napi_struct *napi, struct sk_buff *skb){
+    bpf_trace_printk("Pkt Size:\t%d\\n", skb->len );
     return 0;
 }
 """
 
 b = BPF(text=prog)
-b.attach_kprobe(event="__napi_schedule", fn_name="gro_trace")
+b.attach_kprobe(event="napi_gro_receive", fn_name="gro_trace")
 
 print("Start Tracing... Ctrl-C to stop")
 while 1:
     (task, pid, cpu, flags, ts, ms) = b.trace_fields()
 
-    print(ms)
+    print(ms.decode())
