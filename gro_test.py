@@ -11,14 +11,19 @@ from bcc import BPF
 prog = """
 #include <linux/netdevice.h>
 
-int gro_trace(struct pt_regs *cts, struct napi_struct *napi, struct sk_buff *skb){
-    bpf_trace_printk("Pkt Size:\t%d\\n", skb->len );
+int gro_entrance_trace(struct pt_regs *ctx, struct napi_struct *napi, struct sk_buff *skb){
+    bpf_trace_printk("Before\t%d\t%d\t%d\\n", skb->protocol, skb->len, skb->data_len );
+    return 0;
+}
+int gro_exit_trace(struct pt_regs *ctx, struct sk_buff *skb){
+    bpf_trace_printk("After\t%x\t%d\t%d\\n", skb->protocol, skb->len, skb->data_len );
     return 0;
 }
 """
 
 b = BPF(text=prog)
-b.attach_kprobe(event="napi_gro_receive", fn_name="gro_trace")
+b.attach_kprobe(event="napi_gro_receive", fn_name="gro_entrance_trace")
+b.attach_kprobe(event="netif_receive_skb_internal", fn_name="gro_exit_trace")
 
 print("Start Tracing... Ctrl-C to stop")
 while 1:
